@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension point="org.eclipse.ui.menus">
+    <!--<menuContribution locationURI="popup:org.eclipse.jdt.ui.PackageExplorer">
+      <command commandId="edu.usc.haoyu.plugins.bean.builder"
+        label="BeanBuilder" style="push">
+        <visibleWhen
+                  checkEnabled="false">
+               <with
+                     variable="activeMenuSelection">
+                  <iterate
+                        ifEmpty="false"
+                        operator="or">
+                     <adapt
+                           type="org.eclipse.jdt.core.IPackageFragment">
+                     </adapt>
+                  </iterate>
+               </with>
+            </visibleWhen>
+      </command>
+    </menuContribution>-->
+    <menuContribution locationURI="popup:org.eclipse.jdt.ui.CompilationUnitEditor.EditorContext?after=additions">
+      <command commandId="edu.usc.haoyu.plugins.bean.sourcebuilder"
+        label="JavaBeanBuilder" style="push">
+      </command>
+    </menuContribution>
+  </extension>
+  <extension point="org.eclipse.ui.commands">
+    <command defaultHandler="edu.usc.haoyu.handler.BuilderHandler"
+      id="edu.usc.haoyu.plugins.bean.builder" name="BeanBuilder">
+    </command>
+    <command defaultHandler="edu.usc.haoyu.handler.SourceBuilderHandler"
+      id="edu.usc.haoyu.plugins.bean.sourcebuilder" name="JavaBeanBuilder">
+    </command>
+  </extension>
+
+</plugin>

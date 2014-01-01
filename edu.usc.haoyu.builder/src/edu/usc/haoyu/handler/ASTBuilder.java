@@ -52,7 +52,7 @@ import edu.usc.haoyu.utils.BuilderResource;
 
 /**
  * @author Haoyu
- *
+ * 
  */
 public class ASTBuilder {
 
@@ -71,14 +71,29 @@ public class ASTBuilder {
 		return new ASTBuilder(compilationUnit);
 	}
 
+	/**
+	 * Original compilation unit
+	 */
 	private ICompilationUnit compilationUnit;
 
+	/**
+	 * Parsed compilation unit
+	 */
 	private CompilationUnit parsedCompilationUnit;
 
+	/**
+	 * Methods descriptions in the original compilation unit
+	 */
 	private List<String> methods = null;
 
+	/**
+	 * Class name of the original compilation unit
+	 */
 	private String className;
 
+	/**
+	 * Package name of the original compilation unit
+	 */
 	private String packageName;
 
 	public String createBuilderInterface() throws JavaModelException {
@@ -145,6 +160,12 @@ public class ASTBuilder {
 		return className;
 	}
 
+	/**
+	 * Parse the source into a compilation unit.
+	 * 
+	 * @param source
+	 * @return
+	 */
 	private CompilationUnit parse(String source) {
 		ASTParser parser = ASTParser.newParser(AST.JLS4);
 		Map options = JavaCore.getOptions();
@@ -155,6 +176,13 @@ public class ASTBuilder {
 		return cu;
 	}
 
+	/**
+	 * 
+	 * Get the package name of the original compilation unit
+	 * 
+	 * @return
+	 * @throws JavaModelException
+	 */
 	public String getPackageName() throws JavaModelException {
 
 		if (packageName != null) {
@@ -205,6 +233,25 @@ public class ASTBuilder {
 			}
 		}
 		return methods;
+	}
+
+	public List<FieldDeclaration> getFieldDeclarations()
+			throws JavaModelException {
+		if (parsedCompilationUnit == null) {
+			parsedCompilationUnit = parse(compilationUnit.getSource());
+		}
+
+		TypeDeclaration classType = (TypeDeclaration) parsedCompilationUnit
+				.types().get(0);
+
+		ArrayList<FieldDeclaration> fields = new ArrayList<FieldDeclaration>();
+
+		for (Object type : classType.bodyDeclarations()) {
+			if (type instanceof FieldDeclaration) {
+				fields.add((FieldDeclaration) type);
+			}
+		}
+		return fields;
 	}
 
 	public int createInnerBuilderClass(int index, boolean firstMember,
@@ -367,9 +414,8 @@ public class ASTBuilder {
 			fieldMethod.setReturnType2(ast.newSimpleType(ast
 					.newSimpleName(builderClass.getName()
 							.getFullyQualifiedName())));
-			fieldMethod.setJavadoc(createSimpleDoc(ast, className,
-					fieldName));
-			
+			fieldMethod.setJavadoc(createSimpleDoc(ast, className, fieldName));
+
 			Block fieldBlock = ast.newBlock();
 			fieldMethod.setBody(fieldBlock);
 
@@ -414,9 +460,43 @@ public class ASTBuilder {
 		retBody.statements().add(retSta);
 
 		builderClass.bodyDeclarations().add(build);
+
 		classType.bodyDeclarations().add(index + 1, builderClass);
 
 		return index + 1;
+	}
+
+	public void removeInnerBuilderClass() throws JavaModelException {
+
+		if (parsedCompilationUnit == null) {
+			parsedCompilationUnit = parse(compilationUnit.getSource());
+		}
+
+		TypeDeclaration classType = (TypeDeclaration) parsedCompilationUnit
+				.types().get(0);
+		String className = classType.getName().getFullyQualifiedName();
+		String builderClassName = className + "Builder";
+
+		for (int i = 0; i < classType.bodyDeclarations().size(); i++) {
+			Object em = classType.bodyDeclarations().get(i);
+			if (em instanceof MethodDeclaration) {
+				MethodDeclaration method = (MethodDeclaration) em;
+				if (method.getName().getFullyQualifiedName().equals(className)
+						&& method.isConstructor()) {
+					classType.bodyDeclarations().remove(i);
+					i--;
+				}
+			} else if (em instanceof TypeDeclaration) {
+				TypeDeclaration builder = (TypeDeclaration) em;
+				if (builder.getName().getFullyQualifiedName()
+						.equals(builderClassName)) {
+					classType.bodyDeclarations().remove(i);
+					i--;
+				}
+
+			}
+		}
+
 	}
 
 	public int createInnerJSONMethods(int index) throws JavaModelException {
@@ -453,8 +533,28 @@ public class ASTBuilder {
 						ast.newSimpleName("json")),
 				ast.newSimpleName("JSONException")));
 
-		imports.add(JSONObjectImport);
-		imports.add(JSONExceptionImport);
+		boolean JSONimported = false;
+		boolean JSONEximported = false;
+
+		for (ImportDeclaration em : imports) {
+			if (em.getName().getFullyQualifiedName()
+					.equals(JSONObjectImport.getName().getFullyQualifiedName())) {
+				JSONimported = true;
+			} else if (em
+					.getName()
+					.getFullyQualifiedName()
+					.equals(JSONExceptionImport.getName()
+							.getFullyQualifiedName())) {
+				JSONEximported = true;
+			}
+		}
+
+		if (!JSONimported) {
+			imports.add(JSONObjectImport);
+		}
+		if (!JSONEximported) {
+			imports.add(JSONExceptionImport);
+		}
 
 		MethodDeclaration toJSONDeclaration = createToJSONMethod(ast, fields);
 		MethodDeclaration fromJSONDeclaration = createfromJSONMethod(ast,
@@ -465,6 +565,32 @@ public class ASTBuilder {
 
 		return index + 1;
 
+	}
+
+	public void removeInnerJSONMethods() throws JavaModelException {
+		if (parsedCompilationUnit == null) {
+			parsedCompilationUnit = parse(compilationUnit.getSource());
+		}
+
+		TypeDeclaration classType = (TypeDeclaration) parsedCompilationUnit
+				.types().get(0);
+
+		String className = classType.getName().getFullyQualifiedName();
+
+		for (int i = 0; i < classType.bodyDeclarations().size(); i++) {
+			Object em = classType.bodyDeclarations().get(i);
+			if (em instanceof MethodDeclaration) {
+				MethodDeclaration method = (MethodDeclaration) em;
+				if (method.getName().getFullyQualifiedName().equals("toJSON")) {
+					classType.bodyDeclarations().remove(i);
+					i--;
+				}
+				if (method.getName().getFullyQualifiedName().equals("fromJSON")) {
+					classType.bodyDeclarations().remove(i);
+					i--;
+				}
+			}
+		}
 	}
 
 	private MethodDeclaration createfromJSONMethod(AST ast,
@@ -811,6 +937,129 @@ public class ASTBuilder {
 		mainBlock.statements().add(ast.newExpressionStatement(println));
 
 		System.out.println(compilationUnit.toString());
+	}
+
+	public boolean containsAllFields() throws JavaModelException {
+		if (parsedCompilationUnit == null) {
+			parsedCompilationUnit = parse(compilationUnit.getSource());
+		}
+
+		TypeDeclaration classType = (TypeDeclaration) parsedCompilationUnit
+				.types().get(0);
+
+		className = classType.getName().getFullyQualifiedName();
+
+		TypeDeclaration builderClass = null;
+
+		for (Object em : classType.bodyDeclarations()) {
+			if (em instanceof TypeDeclaration) {
+				TypeDeclaration td = (TypeDeclaration) em;
+				if ((className + "Builder").equals(td.getName()
+						.getFullyQualifiedName())) {
+					builderClass = td;
+					break;
+				}
+			}
+		}
+
+		if (builderClass == null) {
+			return false;
+		}
+
+		List<FieldDeclaration> builderFields = new ArrayList<FieldDeclaration>();
+
+		for (Object em : builderClass.bodyDeclarations()) {
+			if (em instanceof FieldDeclaration) {
+				builderFields.add((FieldDeclaration) em);
+			}
+		}
+
+		List<FieldDeclaration> fields = getFieldDeclarations();
+
+		int sameSize = 0;
+		boolean exists = false;
+
+		if (fields.size() != builderFields.size()) {
+			return false;
+		}
+
+		for (FieldDeclaration builderField : builderFields) {
+			for (FieldDeclaration field : fields) {
+				if (isEqual(builderField, field)) {
+					exists = true;
+				}
+			}
+			if (exists) {
+				exists = false;
+				sameSize++;
+			}
+		}
+
+		if (sameSize == builderFields.size()) {
+			return true;
+		}
+
+		return false;
+	}
+
+	private boolean isEqual(FieldDeclaration field1, FieldDeclaration field2) {
+
+		VariableDeclarationFragment fieldVariableDeclarationFragment1 = (VariableDeclarationFragment) field1
+				.fragments().get(0);
+		String fieldName1 = fieldVariableDeclarationFragment1.getName()
+				.getFullyQualifiedName();
+		Type fieldType1 = field1.getType();
+
+		VariableDeclarationFragment fieldVariableDeclarationFragment2 = (VariableDeclarationFragment) field2
+				.fragments().get(0);
+		String fieldName2 = fieldVariableDeclarationFragment2.getName()
+				.getFullyQualifiedName();
+		Type fieldType2 = field2.getType();
+
+		if (fieldName1.equals(fieldName2)) {
+			boolean b1 = fieldType1.isArrayType() && fieldType2.isArrayType();
+			boolean b2 = fieldType1.isParameterizedType()
+					&& fieldType2.isParameterizedType();
+			boolean b3 = fieldType1.isPrimitiveType()
+					&& fieldType2.isPrimitiveType();
+			boolean b4 = fieldType1.isQualifiedType()
+					&& fieldType2.isQualifiedType();
+			boolean b5 = fieldType1.isSimpleType() && fieldType2.isSimpleType();
+			boolean b6 = fieldType1.isUnionType() && fieldType2.isUnionType();
+			boolean b7 = fieldType1.isWildcardType()
+					&& fieldType2.isWildcardType();
+			if (b1) {
+				ArrayType a1 = (ArrayType) fieldType1;
+				return true;
+			}
+			if (b2) {
+				ParameterizedType p1 = (ParameterizedType) fieldType1;
+			}
+			if (b3) {
+				PrimitiveType p1 = (PrimitiveType) fieldType1;
+				PrimitiveType p2 = (PrimitiveType) fieldType2;
+				return p1.getPrimitiveTypeCode().equals(
+						p2.getPrimitiveTypeCode());
+			}
+			if (b4) {
+				QualifiedType q1 = (QualifiedType) fieldType1;
+			}
+			if (b5) {
+				SimpleType st1 = (SimpleType) fieldType1;
+				SimpleType st2 = (SimpleType) fieldType2;
+				return st1.getName().getFullyQualifiedName()
+						.equals(st2.getName().getFullyQualifiedName());
+			}
+			if (b6) {
+				UnionType ut1 = (UnionType) fieldType1;
+				return true;
+			}
+			if (b7) {
+				return true;
+			}
+		}
+
+		return true;
 	}
 
 	public static void main(String[] args) {

@@ -23,7 +23,7 @@ import edu.usc.haoyu.utils.FileUtils;
 
 /**
  * @author Haoyu
- *
+ * 
  */
 public class ASTBuilderEngine {
 
@@ -71,17 +71,22 @@ public class ASTBuilderEngine {
 	 * @param createJSONMethods
 	 * @param index
 	 * @param optionsLength
+	 * @return
 	 * @throws IOException
 	 * @throws JavaModelException
 	 */
-	public void create(boolean createBuilder, boolean createJSONMethods,
+	public boolean create(boolean createBuilder, boolean createJSONMethods,
 			int index, int optionsLength) throws IOException,
 			JavaModelException {
 
 		File selectedFile = FileUtils.createNewFile(
 				getSelectedFileAbsolutePath(), astBuilder.getClassName()
 						+ ".java");
-		
+
+		if (astBuilder.containsAllFields()) {
+			return false;
+		}
+
 		boolean firstMember = false;
 		boolean lastMember = false;
 
@@ -99,7 +104,8 @@ public class ASTBuilderEngine {
 			String content = astBuilder.createBuilderInterface();
 			FileUtils.write(file, formatSourceCode(content));
 
-			index = astBuilder.createInnerBuilderClass(index, firstMember, lastMember);
+			index = astBuilder.createInnerBuilderClass(index, firstMember,
+					lastMember);
 
 		}
 
@@ -107,12 +113,12 @@ public class ASTBuilderEngine {
 			BuilderResource.writeJSONJarFile(getSelectedProjectAbsolutePath());
 			index = astBuilder.createInnerJSONMethods(index + 1);
 		}
-		
+
 		if (astBuilder.getContent() != null) {
 			FileUtils.write(selectedFile,
 					formatSourceCode(astBuilder.getContent()));
 		}
-
+		return true;
 	}
 
 	public String getClassName() {
@@ -143,6 +149,20 @@ public class ASTBuilderEngine {
 			e.printStackTrace();
 		}
 		return null;
+	}
+
+	public boolean containsAllFields() throws JavaModelException {
+		return astBuilder.containsAllFields();
+	}
+
+	public void removeDuplicates(boolean createBuilder,
+			boolean createJSONMethods) throws JavaModelException {
+		if (createBuilder) {
+			astBuilder.removeInnerBuilderClass();
+		}
+		if (createJSONMethods) {
+			astBuilder.removeInnerJSONMethods();
+		}
 	}
 
 	private String formatSourceCode(String source) {

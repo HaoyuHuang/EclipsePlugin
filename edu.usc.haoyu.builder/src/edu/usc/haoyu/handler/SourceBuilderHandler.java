@@ -25,12 +25,13 @@ import org.eclipse.ui.IFileEditorInput;
 
 import edu.usc.haoyu.builder.Activator;
 import edu.usc.haoyu.utils.BuilderResource;
+import edu.usc.haoyu.view.PopupView;
 import edu.usc.haoyu.view.SourceBuilderView;
 import edu.usc.haoyu.view.SourceBuilderViewInterface;
 
 /**
  * @author Haoyu
- *
+ * 
  */
 public class SourceBuilderHandler extends AbstractHandler {
 
@@ -41,10 +42,9 @@ public class SourceBuilderHandler extends AbstractHandler {
 	private static String selectedProjectAbsolutePath = null;
 
 	private ASTBuilderEngine astBuilderEngine;
-	
+
 	@Override
 	public Object execute(ExecutionEvent event) throws ExecutionException {
-		// TODO Auto-generated method stub
 		IEditorPart editorPart = Activator.getDefault().getWorkbench()
 				.getActiveWorkbenchWindow().getActivePage().getActiveEditor();
 		IEditorInput input = editorPart.getEditorInput();
@@ -57,9 +57,16 @@ public class SourceBuilderHandler extends AbstractHandler {
 				try {
 					astBuilderEngine = ASTBuilderEngine.newInstance(unit);
 					astBuilderEngine.initWithFilePath(filePath);
-					createSourceBuilderView();
+					
+					if (astBuilderEngine.containsAllFields()) {
+						PopupView
+								.display("All fields have been created in the Builder Class");
+					} else {
+						astBuilderEngine.removeDuplicates(true, true);
+						createSourceBuilderView();
+					}
 				} catch (JavaModelException e) {
-					// TODO Auto-generated catch block
+					PopupView.display("Internal Error");
 					e.printStackTrace();
 				}
 
@@ -86,16 +93,20 @@ public class SourceBuilderHandler extends AbstractHandler {
 						public void OKPressed(boolean generateBuilder,
 								boolean generateJSON, int index,
 								int optionsLength) {
-							// TODO Auto-generated method stub
 							try {
-								astBuilderEngine.create(generateBuilder,
-										generateJSON, index, optionsLength);
-								BuilderResource.refreshWorkspace();
+								boolean success = astBuilderEngine.create(
+										generateBuilder, generateJSON, index,
+										optionsLength);
+								if (success) {
+									BuilderResource.refreshWorkspace();
+								} else {
+
+								}
 							} catch (JavaModelException | IOException e) {
-								// TODO Auto-generated catch block
+								PopupView.display("Internal Error");
 								e.printStackTrace();
 							} catch (CoreException e) {
-								// TODO Auto-generated catch block
+								PopupView.display("Internal Error");
 								e.printStackTrace();
 							}
 							frame.close();
@@ -131,7 +142,6 @@ public class SourceBuilderHandler extends AbstractHandler {
 			SourceBuilderView.display(allfields, packageName,
 					className.substring(0, className.length() - 5));
 		} catch (JavaModelException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
 	}
